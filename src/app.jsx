@@ -447,8 +447,7 @@ const styles = `
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
   .dot.closed { background: var(--red); }
 `;
-
-// ─── APP ─────────────────────────────────────────────────────────────────────
+                              // ─── APP ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("barber");
   const [queue, setQueue] = useState([]);
@@ -672,4 +671,110 @@ export default function App() {
                 <>
                   <div className="section-label">Live Queue</div>
                   {queue.filter(e => e.status !== "pending").map((e, i) => (
-                    <div 
+                    <div key={e.id} className="customer-queue-item">
+                      <div className="cqi-pos">{e.status === "in-chair" ? "✂" : i + 1}</div>
+                      <div className="cqi-name">{e.name}</div>
+                      <span className={`status-badge ${e.status === "in-chair" ? "badge-in-chair" : "badge-confirmed"}`}>
+                        {e.status === "in-chair" ? "Cutting" : "Waiting"}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="divider" />
+                </>
+              )}
+
+              <div className="join-form">
+                <div className="form-title">Join the Queue</div>
+                <div className="input-group">
+                  <label className="input-label">Your Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Chukwuemeka"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                  />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Phone (optional)</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 080 xxx xxxx"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                  />
+                </div>
+                <button className="btn-primary" onClick={joinQueue} disabled={!name.trim()}>
+                  JOIN QUEUE
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* My status */}
+              {myEntry ? (
+                <>
+                  {myEntry.status === "pending" && (
+                    <div className="waiting-banner">
+                      ⏳ Waiting for barber to confirm your spot…
+                    </div>
+                  )}
+                  {myEntry.status === "confirmed" && (
+                    <div className="confirmed-banner">
+                      ✅ You're confirmed! Head to the shop.
+                    </div>
+                  )}
+                  {myEntry.status === "in-chair" && (
+                    <div className="success-banner">
+                      <div className="success-title">You're in the chair!</div>
+                      <div className="success-sub">Enjoy your cut 💈</div>
+                    </div>
+                  )}
+
+                  {myPosition && myEntry.status !== "in-chair" && (
+                    <div className="wait-banner">
+                      <div className="wait-banner-num">#{myPosition}</div>
+                      <div className="wait-banner-label">Your position in queue</div>
+                      {waitMins > 0 && (
+                        <div style={{ marginTop: 8, fontSize: 13, color: "#888" }}>
+                          ~{waitMins} min estimated wait
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Full queue */}
+                  <div className="section-label">Full Queue</div>
+                  {queue.map((e, i) => (
+                    <div key={e.id} className="customer-queue-item">
+                      <div className={`cqi-pos ${e.id === myId ? "mine" : ""}`}>
+                        {e.status === "in-chair" ? "✂" : i + 1}
+                      </div>
+                      <div className={`cqi-name ${e.id === myId ? "mine" : ""}`}>
+                        {e.id === myId ? `${e.name} (You)` : e.name}
+                      </div>
+                      {e.id === myId && <span className="mine-tag">You</span>}
+                    </div>
+                  ))}
+
+                  {myEntry.status !== "in-chair" && (
+                    <button className="leave-btn" onClick={leaveQueue}>
+                      Leave Queue
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">✅</div>
+                  <div className="empty-text">Your cut is done! See you next time.</div>
+                  <button className="btn-primary" style={{ marginTop: 20 }} onClick={() => setJoined(false)}>
+                    JOIN AGAIN
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
