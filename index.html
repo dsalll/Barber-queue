@@ -1,12 +1,311 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Barber Queue</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FreshCut Queue</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--black:#0a0a0a;--white:#f5f0e8;--gold:#c8a84b;--green:#2d7a4f;--red:#c23b22;--gray:#888;--card:#141414;--border:#2a2a2a}
+  body{background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;min-height:100vh}
+  .header{background:var(--black);border-bottom:1px solid var(--border);padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px}
+  .logo span{color:var(--gold)}
+  .openbtn{font-size:12px;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:6px;border:none;background:none}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .dot.closed{background:var(--red)}
+  .tabs{display:flex;background:#111;border-bottom:1px solid var(--border)}
+  .tab{flex:1;padding:13px;text-align:center;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;background:none;color:var(--gray);border-bottom:2px solid transparent}
+  .tab.active{color:var(--gold);border-bottom-color:var(--gold);background:var(--black)}
+  .main{padding:20px;max-width:480px;margin:0 auto}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 10px;text-align:center}
+  .stat-num{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--gold)}
+  .stat-lbl{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+  .slabel{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;display:flex;align-items:center;gap:8px}
+  .slabel::after{content:'';flex:1;height:1px;background:var(--border)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+  .card.pending{border-left:3px solid #a07820}
+  .card.confirmed{border-left:3px solid var(--green)}
+  .card.inchair{border-left:3px solid var(--gold)}
+  .cnum{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--gold);min-width:32px;text-align:center}
+  .cinfo{flex:1}
+  .cname{font-weight:600;font-size:15px}
+  .cmeta{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;align-items:center}
+  .ctime{font-size:12px;color:var(--gray)}
+  .badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+  .b-p{background:#2a1f00;color:var(--gold)}
+  .b-c{background:#0d2b1a;color:#4caf82}
+  .b-i{background:#1a1200;color:#e8c96a}
+  .actions{display:flex;gap:6px}
+  .abtn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:#1e1e1e;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center}
+  .abtn.ok{border-color:var(--green);color:var(--green)}
+  .abtn.no{border-color:var(--red);color:var(--red)}
+  .abtn.sc{border-color:var(--gold);color:var(--gold)}
+  .empty{text-align:center;padding:40px 20px;color:var(--gray)}
+  .empty-icon{font-size:36px;margin-bottom:10px}
+  .form-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:20px}
+  .form-title{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);margin-bottom:16px;letter-spacing:1px}
+  .field{margin-bottom:12px}
+  .flabel{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gray);display:block;margin-bottom:5px}
+  input{width:100%;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--white);font-size:15px;font-family:'DM Sans',sans-serif;outline:none}
+  input:focus{border-color:var(--gold)}
+  .joinbtn{width:100%;background:var(--gold);color:var(--black);border:none;border-radius:8px;padding:13px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;margin-top:4px}
+  .joinbtn:disabled{background:#333;color:#555;cursor:not-allowed}
+  .pos-banner{background:linear-gradient(135deg,#1a1200,#0d0d0d);border:1px solid var(--gold);border-radius:12px;padding:18px;text-align:center;margin-bottom:16px}
+  .pos-num{font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--gold);line-height:1}
+  .pos-lbl{font-size:13px;color:var(--gray);margin-top:4px}
+  .sbanner{border-radius:12px;padding:13px 16px;text-align:center;margin-bottom:16px;font-size:13px}
+  .sb-p{background:#1a1200;border:1px solid #a07820;color:var(--gold)}
+  .sb-c{background:#0d2b1a;border:1px solid var(--green);color:#4caf82}
+  .sb-i{background:#1a1200;border:1px solid var(--gold);color:#e8c96a}
+  .leavebtn{width:100%;background:transparent;border:1px solid #333;color:var(--gray);border-radius:8px;padding:11px;font-size:14px;cursor:pointer;margin-top:8px}
+  .divider{height:1px;background:var(--border);margin:16px 0}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">FRESH<span>CUT</span></div>
+  <button class="openbtn" onclick="toggleOpen()">
+    <div class="dot" id="statusdot"></div>
+    <span id="statuslbl">Open</span>
+  </button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('barber',this)">✂ Barber</button>
+  <button class="tab" onclick="switchTab('customer',this)">👤 Customer</button>
+</div>
+
+<!-- BARBER VIEW -->
+<div id="barber-view" class="main">
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="s-chair">0</div><div class="stat-lbl">In Chair</div></div>
+    <div class="stat"><div class="stat-num" id="s-conf">0</div><div class="stat-lbl">Confirmed</div></div>
+    <div class="stat"><div class="stat-num" id="s-pend">0</div><div class="stat-lbl">Pending</div></div>
+  </div>
+  <div id="inchair-section"></div>
+  <div id="confirmed-section"></div>
+  <div class="slabel">Requests</div>
+  <div id="pending-section"><div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div></div>
+</div>
+
+<!-- CUSTOMER VIEW -->
+<div id="customer-view" class="main hidden">
+  <div id="closed-msg" class="empty hidden" style="padding-top:60px">
+    <div class="empty-icon">🚫</div>
+    <div style="font-size:16px;color:var(--red);margin-top:10px">Shop is closed</div>
+    <div style="font-size:13px;color:var(--gray);margin-top:6px">Check back later</div>
+  </div>
+  <div id="join-section">
+    <div id="live-preview"></div>
+    <div class="form-box">
+      <div class="form-title">Join the Queue</div>
+      <div class="field"><label class="flabel">Your Name</label><input type="text" id="inp-name" placeholder="Enter your name" oninput="checkJoinBtn()" /></div>
+      <div class="field"><label class="flabel">Phone (optional)</label><input type="tel" id="inp-phone" placeholder="Your phone number" /></div>
+      <button class="joinbtn" id="join-btn" onclick="joinQueue()" disabled>JOIN QUEUE</button>
+    </div>
+  </div>
+  <div id="my-section" class="hidden">
+    <div id="my-status"></div>
+    <div id="my-pos"></div>
+    <div class="slabel">Full Queue</div>
+    <div id="full-queue"></div>
+    <button class="leavebtn" id="leave-btn" onclick="leaveQueue()">Leave Queue</button>
+  </div>
+  <div id="done-section" class="hidden">
+    <div class="empty">
+      <div class="empty-icon">✅</div>
+      <div>Your cut is done! See you next time.</div>
+      <button class="joinbtn" style="margin-top:20px;width:auto;padding:13px 30px" onclick="resetCustomer()">JOIN AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let queue = [];
+let isOpen = true;
+let myId = null;
+
+function generateId(){ return Math.random().toString(36).substr(2,9); }
+
+function toggleOpen(){
+  isOpen = !isOpen;
+  document.getElementById('statusdot').className = 'dot' + (isOpen ? '' : ' closed');
+  document.getElementById('statuslbl').textContent = isOpen ? 'Open' : 'Closed';
+  renderAll();
+}
+
+function switchTab(tab, btn){
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('barber-view').classList.toggle('hidden', tab !== 'barber');
+  document.getElementById('customer-view').classList.toggle('hidden', tab !== 'customer');
+  renderAll();
+}
+
+function checkJoinBtn(){
+  document.getElementById('join-btn').disabled = !document.getElementById('inp-name').value.trim();
+}
+
+function joinQueue(){
+  const name = document.getElementById('inp-name').value.trim();
+  const phone = document.getElementById('inp-phone').value.trim();
+  if(!name) return;
+  const entry = { id: generateId(), name, phone, status: 'pending', time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
+  queue.push(entry);
+  myId = entry.id;
+  document.getElementById('inp-name').value = '';
+  document.getElementById('inp-phone').value = '';
+  renderAll();
+}
+
+function leaveQueue(){
+  queue = queue.filter(e => e.id !== myId);
+  myId = null;
+  renderAll();
+}
+
+function resetCustomer(){
+  myId = null;
+  document.getElementById('done-section').classList.add('hidden');
+  document.getElementById('join-section').classList.remove('hidden');
+  renderAll();
+}
+
+function confirmEntry(id){ queue = queue.map(e => e.id===id ? {...e,status:'confirmed'} : e); renderAll(); }
+function rejectEntry(id){
+  if(id === myId) myId = null;
+  queue = queue.filter(e => e.id !== id);
+  renderAll();
+}
+function startCut(id){ queue = queue.map(e => e.id===id ? {...e,status:'in-chair'} : e); renderAll(); }
+function doneCut(id){ queue = queue.filter(e => e.id !== id); renderAll(); }
+
+function renderAll(){
+  const pending = queue.filter(e => e.status==='pending');
+  const confirmed = queue.filter(e => e.status==='confirmed');
+  const inchair = queue.filter(e => e.status==='in-chair');
+
+  // Stats
+  document.getElementById('s-chair').textContent = inchair.length;
+  document.getElementById('s-conf').textContent = confirmed.length;
+  document.getElementById('s-pend').textContent = pending.length;
+
+  // In chair
+  const ics = document.getElementById('inchair-section');
+  if(inchair.length > 0){
+    ics.innerHTML = '<div class="slabel">In Chair</div>' + inchair.map(e => `
+      <div class="card inchair">
+        <div class="cnum">✂</div>
+        <div class="cinfo"><div class="cname">${e.name}</div>
+          <div class="cmeta"><span class="ctime">${e.time}</span><span class="badge b-i">Cutting</span></div>
+        </div>
+        <div class="actions"><button class="abtn ok" onclick="doneCut('${e.id}')">✓</button></div>
+      </div>`).join('') + '<div class="divider"></div>';
+  } else { ics.innerHTML = ''; }
+
+  // Confirmed
+  const cs = document.getElementById('confirmed-section');
+  if(confirmed.length > 0){
+    cs.innerHTML = '<div class="slabel">Up Next</div>' + confirmed.map((e,i) => `
+      <div class="card confirmed">
+        <div class="cnum">${i+1}</div>
+        <div class="cinfo"><div class="cname">${e.name}</div>
+          <div class="cmeta"><span class="ctime">${e.time}</span><span class="badge b-c">Confirmed</span></div>
+        </div>
+        <div class="actions">
+          <button class="abtn sc" onclick="startCut('${e.id}')">✂</button>
+          <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
+        </div>
+      </div>`).join('') + '<div class="divider"></div>';
+  } else { cs.innerHTML = ''; }
+
+  // Pending
+  const ps = document.getElementById('pending-section');
+  if(pending.length === 0){
+    ps.innerHTML = '<div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div>';
+  } else {
+    ps.innerHTML = pending.map((e,i) => `
+      <div class="card pending">
+        <div class="cnum">${i+1}</div>
+        <div class="cinfo"><div class="cname">${e.name}</div>
+          <div class="cmeta"><span class="ctime">${e.time}</span>${e.phone?`<span class="ctime">${e.phone}</span>`:''}<span class="badge b-p">Waiting</span></div>
+        </div>
+        <div class="actions">
+          <button class="abtn ok" onclick="confirmEntry('${e.id}')">✓</button>
+          <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // Customer view
+  const closedMsg = document.getElementById('closed-msg');
+  const joinSection = document.getElementById('join-section');
+  const mySection = document.getElementById('my-section');
+  const doneSection = document.getElementById('done-section');
+
+  if(!isOpen){
+    closedMsg.classList.remove('hidden');
+    joinSection.classList.add('hidden');
+    mySection.classList.add('hidden');
+    return;
+  } else { closedMsg.classList.add('hidden'); }
+
+  const myEntry = queue.find(e => e.id === myId);
+
+  if(!myId || (!myEntry && !doneSection.classList.contains('hidden'))){
+    // show done or join
+  } else if(!myEntry){
+    joinSection.classList.remove('hidden');
+    mySection.classList.add('hidden');
+  } else {
+    joinSection.classList.add('hidden');
+    mySection.classList.remove('hidden');
+
+    // Status banner
+    const sb = document.getElementById('my-status');
+    if(myEntry.status==='pending') sb.innerHTML = '<div class="sbanner sb-p">⏳ Waiting for barber to confirm your spot…</div>';
+    else if(myEntry.status==='confirmed') sb.innerHTML = '<div class="sbanner sb-c">✅ You\'re confirmed! Head to the shop.</div>';
+    else if(myEntry.status==='in-chair') sb.innerHTML = '<div class="sbanner sb-i">✂ You\'re in the chair! Enjoy your cut.</div>';
+
+    // Position
+    const activeQ = queue.filter(e => e.status !== 'in-chair');
+    const pos = activeQ.findIndex(e => e.id === myId) + 1;
+    const mp = document.getElementById('my-pos');
+    if(pos > 0 && myEntry.status !== 'in-chair'){
+      mp.innerHTML = `<div class="pos-banner"><div class="pos-num">#${pos}</div><div class="pos-lbl">Your position · ~${(pos-1)*20} min wait</div></div>`;
+    } else { mp.innerHTML = ''; }
+
+    // Leave btn
+    document.getElementById('leave-btn').style.display = myEntry.status === 'in-chair' ? 'none' : 'block';
+
+    // Full queue
+    document.getElementById('full-queue').innerHTML = queue.map((e,i) => `
+      <div class="card" style="${e.id===myId?'border-color:var(--gold)':''}">
+        <div class="cnum" style="${e.id===myId?'color:var(--gold)':''}">${e.status==='in-chair'?'✂':i+1}</div>
+        <div class="cinfo"><div class="cname" style="${e.id===myId?'color:var(--gold)':''}">${e.name}${e.id===myId?' (You)':''}</div></div>
+        ${e.id===myId?'<span class="badge b-p">You</span>':''}
+      </div>`).join('');
+  }
+
+  // Live preview for join section
+  const lp = document.getElementById('live-preview');
+  const visible = queue.filter(e => e.status !== 'pending');
+  if(visible.length > 0 && !myId){
+    lp.innerHTML = '<div class="slabel">Live Queue</div>' + visible.map((e,i) => `
+      <div class="card">
+        <div class="cnum">${e.status==='in-chair'?'✂':i+1}</div>
+        <div class="cinfo"><div class="cname">${e.name}</div></div>
+        <span class="badge ${e.status==='in-chair'?'b-i':'b-c'}">${e.status==='in-chair'?'Cutting':'Waiting'}</span>
+      </div>`).join('') + '<div class="divider"></div>';
+  } else { lp.innerHTML = ''; }
+}
+
+renderAll();
+</script>
+</body>
+  </html>
