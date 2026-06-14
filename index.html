@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FreshCut Queue</title>
+<title>ChairQ — Barbershop Queue</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
   :root{--black:#0a0a0a;--white:#f5f0e8;--gold:#c8a84b;--green:#2d7a4f;--red:#c23b22;--gray:#888;--card:#141414;--border:#2a2a2a}
   body{background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;min-height:100vh}
   .header{background:var(--black);border-bottom:1px solid var(--border);padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-  .logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:var(--white)}
   .logo span{color:var(--gold)}
+  .shop-name{font-size:12px;color:var(--gray);margin-top:2px}
   .openbtn{font-size:12px;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:6px;border:none;background:none}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
   .dot.closed{background:var(--red)}
@@ -63,116 +64,269 @@
   .leavebtn{width:100%;background:transparent;border:1px solid #333;color:var(--gray);border-radius:8px;padding:11px;font-size:14px;cursor:pointer;margin-top:8px}
   .divider{height:1px;background:var(--border);margin:16px 0}
   .hidden{display:none}
-  .syncing{position:fixed;bottom:16px;right:16px;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--gray)}
+  .sync{position:fixed;bottom:16px;right:16px;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--gray)}
+
+  /* SETUP SCREEN */
+  .setup-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;text-align:center}
+  .setup-icon{font-size:48px;margin-bottom:16px}
+  .setup-title{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);letter-spacing:2px;margin-bottom:8px}
+  .setup-sub{font-size:14px;color:var(--gray);margin-bottom:30px}
+  .setup-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;width:100%;max-width:400px}
+  .setup-box .flabel{text-align:left}
+  .setup-box input{margin-bottom:12px}
+  .share-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px;word-break:break-all;font-size:13px;color:var(--gray);text-align:left}
+  .share-box strong{color:var(--gold);display:block;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .copy-btn{width:100%;background:#1e1e1e;border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px;font-size:13px;cursor:pointer;margin-top:8px}
+  .copy-btn:hover{border-color:var(--gold)}
+  .pin-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;text-align:center}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="logo">FRESH<span>CUT</span></div>
-  <button class="openbtn" onclick="toggleOpen()">
-    <div class="dot" id="statusdot"></div>
-    <span id="statuslbl">Open</span>
-  </button>
-</div>
-
-<div class="tabs">
-  <button class="tab active" onclick="switchTab('barber',this)">✂ Barber</button>
-  <button class="tab" onclick="switchTab('customer',this)">👤 Customer</button>
-</div>
-
-<!-- BARBER VIEW -->
-<div id="barber-view" class="main">
-  <div class="stats">
-    <div class="stat"><div class="stat-num" id="s-chair">0</div><div class="stat-lbl">In Chair</div></div>
-    <div class="stat"><div class="stat-num" id="s-conf">0</div><div class="stat-lbl">Confirmed</div></div>
-    <div class="stat"><div class="stat-num" id="s-pend">0</div><div class="stat-lbl">Pending</div></div>
-  </div>
-  <div id="inchair-section"></div>
-  <div id="confirmed-section"></div>
-  <div class="slabel">Requests</div>
-  <div id="pending-section"><div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div></div>
-</div>
-
-<!-- CUSTOMER VIEW -->
-<div id="customer-view" class="main hidden">
-  <div id="closed-msg" class="empty hidden" style="padding-top:60px">
-    <div class="empty-icon">🚫</div>
-    <div style="font-size:16px;color:var(--red);margin-top:10px">Shop is closed</div>
-    <div style="font-size:13px;color:var(--gray);margin-top:6px">Check back later</div>
-  </div>
-  <div id="join-section">
-    <div id="live-preview"></div>
-    <div class="form-box">
-      <div class="form-title">Join the Queue</div>
-      <div class="field"><label class="flabel">Your Name</label><input type="text" id="inp-name" placeholder="Enter your name" oninput="checkJoinBtn()" /></div>
-      <div class="field"><label class="flabel">Phone (optional)</label><input type="tel" id="inp-phone" placeholder="Your phone number" /></div>
-      <button class="joinbtn" id="join-btn" onclick="joinQueue()" disabled>JOIN QUEUE</button>
+<!-- SETUP SCREEN (shown when no shop param) -->
+<div id="setup-screen" class="setup-screen hidden">
+  <div class="setup-icon">✂️</div>
+  <div class="setup-title">CHAIRQ</div>
+  <div class="setup-sub">Queue management for barbershops</div>
+  <div class="setup-box">
+    <div class="field">
+      <label class="flabel">Your Shop Name</label>
+      <input type="text" id="setup-name" placeholder="e.g. Kings Cut Barbershop" />
     </div>
-  </div>
-  <div id="my-section" class="hidden">
-    <div id="my-status"></div>
-    <div id="my-pos"></div>
-    <div class="slabel">Full Queue</div>
-    <div id="full-queue"></div>
-    <button class="leavebtn" id="leave-btn" onclick="leaveQueue()">Leave Queue</button>
-  </div>
-  <div id="done-section" class="hidden">
-    <div class="empty">
-      <div class="empty-icon">✅</div>
-      <div>Your cut is done! See you next time.</div>
-      <button class="joinbtn" style="margin-top:20px;width:auto;padding:13px 30px" onclick="resetCustomer()">JOIN AGAIN</button>
+    <div class="field">
+      <label class="flabel">Shop ID (no spaces)</label>
+      <input type="text" id="setup-id" placeholder="e.g. kingscut" oninput="updatePreview()" />
+    </div>
+    <div class="field">
+      <label class="flabel">Barber PIN (4 digits)</label>
+      <input type="number" id="setup-pin" placeholder="e.g. 1234" maxlength="4" />
+    </div>
+    <button class="joinbtn" onclick="createShop()">CREATE MY QUEUE</button>
+    <div id="setup-preview" class="share-box hidden">
+      <strong>Your Customer Link</strong>
+      <span id="preview-url"></span>
+      <button class="copy-btn" onclick="copyLink()">Copy Link</button>
     </div>
   </div>
 </div>
 
-<div class="syncing" id="sync-indicator">🔴 Connecting...</div>
+<!-- PIN SCREEN -->
+<div id="pin-screen" class="pin-screen hidden">
+  <div style="font-size:36px;margin-bottom:16px">🔐</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--gold);margin-bottom:8px">BARBER ACCESS</div>
+  <div style="font-size:13px;color:var(--gray);margin-bottom:24px">Enter your PIN to manage the queue</div>
+  <div style="width:100%;max-width:300px">
+    <input type="number" id="pin-input" placeholder="Enter PIN" style="text-align:center;font-size:20px;letter-spacing:4px;margin-bottom:12px" />
+    <button class="joinbtn" onclick="checkPin()">ENTER</button>
+    <div id="pin-error" style="color:var(--red);font-size:13px;margin-top:8px;display:none">Wrong PIN. Try again.</div>
+    <button class="leavebtn" onclick="goCustomer()" style="margin-top:12px">I'm a customer →</button>
+  </div>
+</div>
 
-<!-- Firebase SDK -->
+<!-- MAIN APP -->
+<div id="main-app" class="hidden">
+  <div class="header">
+    <div>
+      <div class="logo">FRESH<span>CUT</span></div>
+      <div class="shop-name" id="header-shop-name"></div>
+    </div>
+    <button class="openbtn" onclick="toggleOpen()">
+      <div class="dot" id="statusdot"></div>
+      <span id="statuslbl">Open</span>
+    </button>
+  </div>
+
+  <div class="tabs" id="main-tabs">
+    <button class="tab active" onclick="switchTab('barber',this)" id="barber-tab">✂ Barber</button>
+    <button class="tab" onclick="switchTab('customer',this)">👤 Customer</button>
+  </div>
+
+  <!-- BARBER VIEW -->
+  <div id="barber-view" class="main">
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="s-chair">0</div><div class="stat-lbl">In Chair</div></div>
+      <div class="stat"><div class="stat-num" id="s-conf">0</div><div class="stat-lbl">Confirmed</div></div>
+      <div class="stat"><div class="stat-num" id="s-pend">0</div><div class="stat-lbl">Pending</div></div>
+    </div>
+    <div id="inchair-section"></div>
+    <div id="confirmed-section"></div>
+    <div class="slabel">Requests</div>
+    <div id="pending-section"><div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div></div>
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Customer Link</div>
+      <div id="shop-link" style="font-size:13px;color:var(--gold);word-break:break-all"></div>
+      <button class="copy-btn" onclick="copyShopLink()" style="margin-top:8px;width:100%;background:#1e1e1e;border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px;font-size:13px;cursor:pointer">Copy Customer Link</button>
+    </div>
+  </div>
+
+  <!-- CUSTOMER VIEW -->
+  <div id="customer-view" class="main hidden">
+    <div id="closed-msg" class="empty hidden" style="padding-top:60px">
+      <div class="empty-icon">🚫</div>
+      <div style="font-size:16px;color:var(--red);margin-top:10px">Shop is closed</div>
+      <div style="font-size:13px;color:var(--gray);margin-top:6px">Check back later</div>
+    </div>
+    <div id="join-section">
+      <div id="live-preview"></div>
+      <div class="form-box">
+        <div class="form-title">Join the Queue</div>
+        <div class="field"><label class="flabel">Your Name</label><input type="text" id="inp-name" placeholder="Enter your name" oninput="checkJoinBtn()" /></div>
+        <div class="field"><label class="flabel">Phone (optional)</label><input type="tel" id="inp-phone" placeholder="Your phone number" /></div>
+        <button class="joinbtn" id="join-btn" onclick="joinQueue()" disabled>JOIN QUEUE</button>
+      </div>
+    </div>
+    <div id="my-section" class="hidden">
+      <div id="my-status"></div>
+      <div id="my-pos"></div>
+      <div class="slabel">Full Queue</div>
+      <div id="full-queue"></div>
+      <button class="leavebtn" id="leave-btn" onclick="leaveQueue()">Leave Queue</button>
+    </div>
+    <div id="done-section" class="hidden">
+      <div class="empty">
+        <div class="empty-icon">✅</div>
+        <div>Your cut is done! See you next time.</div>
+        <button class="joinbtn" style="margin-top:20px;width:auto;padding:13px 30px" onclick="resetCustomer()">JOIN AGAIN</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sync" id="sync-indicator">🔴 Connecting...</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue, set, remove, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, onValue, set, remove, update, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  const firebaseConfig = {
-    databaseURL: "https://baberqueuer-default-rtdb.firebaseio.com"
-  };
-
+  const firebaseConfig = { databaseURL: "https://baberqueuer-default-rtdb.firebaseio.com" };
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  const queueRef = ref(db, 'queue');
-  const shopRef = ref(db, 'shop');
 
   let queue = [];
   let isOpen = true;
   let myId = null;
+  let shopId = null;
+  let shopData = null;
+  let isBarber = false;
+  let queueRef, shopRef;
 
-  // Sync indicator
   const syncEl = document.getElementById('sync-indicator');
 
-  // Listen to queue changes in real time
-  onValue(queueRef, (snapshot) => {
-    const data = snapshot.val();
-    queue = data ? Object.values(data) : [];
-    syncEl.textContent = '🟢 Live';
-    renderAll();
-  });
+  // Get shop from URL
+  const params = new URLSearchParams(window.location.search);
+  shopId = params.get('shop');
+  const mode = params.get('mode'); // 'barber' for barber access
 
-  // Listen to shop open/closed
-  onValue(shopRef, (snapshot) => {
-    const data = snapshot.val();
-    if(data && data.isOpen !== undefined){
-      isOpen = data.isOpen;
-      document.getElementById('statusdot').className = 'dot' + (isOpen ? '' : ' closed');
-      document.getElementById('statuslbl').textContent = isOpen ? 'Open' : 'Closed';
-      renderAll();
+  function init(){
+    if(!shopId){
+      // Show setup screen
+      document.getElementById('setup-screen').classList.remove('hidden');
+      return;
     }
-  });
+
+    // Load shop data
+    shopRef = ref(db, 'shops/' + shopId + '/info');
+    queueRef = ref(db, 'shops/' + shopId + '/queue');
+
+    get(shopRef).then(snap => {
+      if(!snap.exists()){
+        document.getElementById('setup-screen').classList.remove('hidden');
+        document.getElementById('setup-screen').querySelector('.setup-sub').textContent = 'Shop not found. Create a new one below.';
+        return;
+      }
+      shopData = snap.val();
+
+      if(mode === 'barber'){
+        // Show PIN screen
+        document.getElementById('pin-screen').classList.remove('hidden');
+      } else {
+        // Customer mode
+        startApp(false);
+      }
+    });
+  }
+
+  window.updatePreview = function(){
+    const id = document.getElementById('setup-id').value.trim().toLowerCase().replace(/\s+/g,'-');
+    document.getElementById('setup-id').value = id;
+    if(id){
+      const url = window.location.origin + '?shop=' + id;
+      document.getElementById('preview-url').textContent = url;
+      document.getElementById('setup-preview').classList.remove('hidden');
+    }
+  };
+
+  window.createShop = function(){
+    const name = document.getElementById('setup-name').value.trim();
+    const id = document.getElementById('setup-id').value.trim().toLowerCase();
+    const pin = document.getElementById('setup-pin').value.trim();
+    if(!name || !id || !pin){ alert('Please fill all fields'); return; }
+    set(ref(db, 'shops/' + id + '/info'), { name, pin, isOpen: true });
+    const url = window.location.origin + '?shop=' + id;
+    window.location.href = url + '&mode=barber';
+  };
+
+  window.copyLink = function(){
+    const id = document.getElementById('setup-id').value.trim().toLowerCase();
+    const url = window.location.origin + '?shop=' + id;
+    navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+  };
+
+  window.checkPin = function(){
+    const entered = document.getElementById('pin-input').value.trim();
+    if(entered === String(shopData.pin)){
+      document.getElementById('pin-screen').classList.add('hidden');
+      startApp(true);
+    } else {
+      document.getElementById('pin-error').style.display = 'block';
+    }
+  };
+
+  window.goCustomer = function(){
+    document.getElementById('pin-screen').classList.add('hidden');
+    startApp(false);
+  };
+
+  function startApp(barber){
+    isBarber = barber;
+    document.getElementById('main-app').classList.remove('hidden');
+    document.getElementById('header-shop-name').textContent = shopData.name;
+
+    // Set shop link
+    const customerUrl = window.location.origin + '?shop=' + shopId;
+    document.getElementById('shop-link').textContent = customerUrl;
+
+    // Hide barber tab if customer
+    if(!isBarber){
+      document.getElementById('barber-tab').classList.add('hidden');
+      switchTab('customer', document.querySelectorAll('.tab')[1]);
+    }
+
+    // Listen to queue
+    onValue(queueRef, snap => {
+      const data = snap.val();
+      queue = data ? Object.values(data) : [];
+      syncEl.textContent = '🟢 Live';
+      renderAll();
+    });
+
+    // Listen to open/closed
+    onValue(shopRef, snap => {
+      const data = snap.val();
+      if(data){
+        isOpen = data.isOpen;
+        document.getElementById('statusdot').className = 'dot' + (isOpen ? '' : ' closed');
+        document.getElementById('statuslbl').textContent = isOpen ? 'Open' : 'Closed';
+        renderAll();
+      }
+    });
+  }
 
   function generateId(){ return Math.random().toString(36).substr(2,9); }
 
   window.toggleOpen = function(){
     isOpen = !isOpen;
-    set(shopRef, { isOpen });
+    update(shopRef, { isOpen });
   };
 
   window.switchTab = function(tab, btn){
@@ -191,8 +345,7 @@
     const phone = document.getElementById('inp-phone').value.trim();
     if(!name) return;
     const id = generateId();
-    const entry = { id, name, phone, status: 'pending', time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
-    set(ref(db, 'queue/' + id), entry);
+    set(ref(db, 'shops/' + shopId + '/queue/' + id), { id, name, phone, status:'pending', time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) });
     myId = id;
     document.getElementById('inp-name').value = '';
     document.getElementById('inp-phone').value = '';
@@ -200,7 +353,7 @@
 
   window.leaveQueue = function(){
     if(!myId) return;
-    remove(ref(db, 'queue/' + myId));
+    remove(ref(db, 'shops/' + shopId + '/queue/' + myId));
     myId = null;
     document.getElementById('my-section').classList.add('hidden');
     document.getElementById('join-section').classList.remove('hidden');
@@ -212,13 +365,15 @@
     document.getElementById('join-section').classList.remove('hidden');
   };
 
-  window.confirmEntry = function(id){ update(ref(db,'queue/'+id),{status:'confirmed'}); };
-  window.rejectEntry = function(id){
-    if(id === myId){ myId = null; }
-    remove(ref(db,'queue/'+id));
+  window.confirmEntry = function(id){ update(ref(db,'shops/'+shopId+'/queue/'+id),{status:'confirmed'}); };
+  window.rejectEntry = function(id){ if(id===myId) myId=null; remove(ref(db,'shops/'+shopId+'/queue/'+id)); };
+  window.startCut = function(id){ update(ref(db,'shops/'+shopId+'/queue/'+id),{status:'in-chair'}); };
+  window.doneCut = function(id){ remove(ref(db,'shops/'+shopId+'/queue/'+id)); };
+
+  window.copyShopLink = function(){
+    const url = window.location.origin + '?shop=' + shopId;
+    navigator.clipboard.writeText(url).then(() => alert('Customer link copied!'));
   };
-  window.startCut = function(id){ update(ref(db,'queue/'+id),{status:'in-chair'}); };
-  window.doneCut = function(id){ remove(ref(db,'queue/'+id)); };
 
   function renderAll(){
     const pending = queue.filter(e => e.status==='pending');
@@ -229,107 +384,8 @@
     document.getElementById('s-conf').textContent = confirmed.length;
     document.getElementById('s-pend').textContent = pending.length;
 
-    // In chair
-    const ics = document.getElementById('inchair-section');
-    ics.innerHTML = inchair.length > 0 ? '<div class="slabel">In Chair</div>' + inchair.map(e => `
-      <div class="card inchair">
-        <div class="cnum">✂</div>
-        <div class="cinfo"><div class="cname">${e.name}</div>
-          <div class="cmeta"><span class="ctime">${e.time}</span><span class="badge b-i">Cutting</span></div>
-        </div>
-        <div class="actions"><button class="abtn ok" onclick="doneCut('${e.id}')">✓</button></div>
-      </div>`).join('') + '<div class="divider"></div>' : '';
+    document.getElementById('inchair-section').innerHTML = inchair.length > 0
+      ? '<div class="slabel">In Chair</div>' + inchair.map(e => `<div class="card inchair"><div class="cnum">✂</div><div class="cinfo"><div class="cname">${e.name}</div><div class="cmeta"><span class="ctime">${e.time}</span><span class="badge b-i">Cutting</span></div></div><div class="actions"><button class="abtn ok" onclick="doneCut('${e.id}')">✓</button></div></div>`).join('') + '<div class="divider"></div>' : '';
 
-    // Confirmed
-    const cs = document.getElementById('confirmed-section');
-    cs.innerHTML = confirmed.length > 0 ? '<div class="slabel">Up Next</div>' + confirmed.map((e,i) => `
-      <div class="card confirmed">
-        <div class="cnum">${i+1}</div>
-        <div class="cinfo"><div class="cname">${e.name}</div>
-          <div class="cmeta"><span class="ctime">${e.time}</span><span class="badge b-c">Confirmed</span></div>
-        </div>
-        <div class="actions">
-          <button class="abtn sc" onclick="startCut('${e.id}')">✂</button>
-          <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
-        </div>
-      </div>`).join('') + '<div class="divider"></div>' : '';
-
-    // Pending
-    const ps = document.getElementById('pending-section');
-    ps.innerHTML = pending.length === 0
-      ? '<div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div>'
-      : pending.map((e,i) => `
-        <div class="card pending">
-          <div class="cnum">${i+1}</div>
-          <div class="cinfo"><div class="cname">${e.name}</div>
-            <div class="cmeta"><span class="ctime">${e.time}</span>${e.phone?`<span class="ctime">${e.phone}</span>`:''}<span class="badge b-p">Waiting</span></div>
-          </div>
-          <div class="actions">
-            <button class="abtn ok" onclick="confirmEntry('${e.id}')">✓</button>
-            <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
-          </div>
-        </div>`).join('');
-
-    // Customer view
-    const closedMsg = document.getElementById('closed-msg');
-    const joinSection = document.getElementById('join-section');
-    const mySection = document.getElementById('my-section');
-
-    if(!isOpen){
-      closedMsg.classList.remove('hidden');
-      joinSection.classList.add('hidden');
-      mySection.classList.add('hidden');
-      return;
-    } else { closedMsg.classList.add('hidden'); }
-
-    const myEntry = queue.find(e => e.id === myId);
-
-    if(!myId || !myEntry){
-      if(myId && !myEntry){
-        // Cut is done
-        myId = null;
-        joinSection.classList.add('hidden');
-        document.getElementById('done-section').classList.remove('hidden');
-        mySection.classList.add('hidden');
-      } else {
-        joinSection.classList.remove('hidden');
-        mySection.classList.add('hidden');
-      }
-    } else {
-      joinSection.classList.add('hidden');
-      mySection.classList.remove('hidden');
-
-      const sb = document.getElementById('my-status');
-      if(myEntry.status==='pending') sb.innerHTML = '<div class="sbanner sb-p">⏳ Waiting for barber to confirm your spot…</div>';
-      else if(myEntry.status==='confirmed') sb.innerHTML = '<div class="sbanner sb-c">✅ You\'re confirmed! Head to the shop.</div>';
-      else if(myEntry.status==='in-chair') sb.innerHTML = '<div class="sbanner sb-i">✂ You\'re in the chair! Enjoy your cut.</div>';
-
-      const activeQ = queue.filter(e => e.status !== 'in-chair');
-      const pos = activeQ.findIndex(e => e.id === myId) + 1;
-      const mp = document.getElementById('my-pos');
-      mp.innerHTML = pos > 0 && myEntry.status !== 'in-chair'
-        ? `<div class="pos-banner"><div class="pos-num">#${pos}</div><div class="pos-lbl">Your position · ~${(pos-1)*20} min wait</div></div>` : '';
-
-      document.getElementById('leave-btn').style.display = myEntry.status === 'in-chair' ? 'none' : 'block';
-
-      document.getElementById('full-queue').innerHTML = queue.map((e,i) => `
-        <div class="card" style="${e.id===myId?'border-color:var(--gold)':''}">
-          <div class="cnum" style="${e.id===myId?'color:var(--gold)':''}">${e.status==='in-chair'?'✂':i+1}</div>
-          <div class="cinfo"><div class="cname" style="${e.id===myId?'color:var(--gold)':''}">${e.name}${e.id===myId?' (You)':''}</div></div>
-          ${e.id===myId?'<span class="badge b-p">You</span>':''}
-        </div>`).join('');
-    }
-
-    // Live preview
-    const lp = document.getElementById('live-preview');
-    const visible = queue.filter(e => e.status !== 'pending');
-    lp.innerHTML = visible.length > 0 && !myId ? '<div class="slabel">Live Queue</div>' + visible.map((e,i) => `
-      <div class="card">
-        <div class="cnum">${e.status==='in-chair'?'✂':i+1}</div>
-        <div class="cinfo"><div class="cname">${e.name}</div></div>
-        <span class="badge ${e.status==='in-chair'?'b-i':'b-c'}">${e.status==='in-chair'?'Cutting':'Waiting'}</span>
-      </div>`).join('') + '<div class="divider"></div>' : '';
-  }
-</script>
-</body>
-      </html>
+    document.getElementById('confirmed-section').innerHTML = confirmed.length > 0
+      ? '<div class="slabel">Up Next</div>' + confirmed.map((e,i) => `<div class="card confirmed"><div class="cnum">${i+1}</div><div class="cinfo"><div class="cname">${e.nam
