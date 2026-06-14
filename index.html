@@ -63,6 +63,7 @@
   .leavebtn{width:100%;background:transparent;border:1px solid #333;color:var(--gray);border-radius:8px;padding:11px;font-size:14px;cursor:pointer;margin-top:8px}
   .divider{height:1px;background:var(--border);margin:16px 0}
   .hidden{display:none}
+  .syncing{position:fixed;bottom:16px;right:16px;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--gray)}
 </style>
 </head>
 <body>
@@ -125,93 +126,123 @@
   </div>
 </div>
 
-<script>
-let queue = [];
-let isOpen = true;
-let myId = null;
+<div class="syncing" id="sync-indicator">🔴 Connecting...</div>
 
-function generateId(){ return Math.random().toString(36).substr(2,9); }
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set, remove, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-function toggleOpen(){
-  isOpen = !isOpen;
-  document.getElementById('statusdot').className = 'dot' + (isOpen ? '' : ' closed');
-  document.getElementById('statuslbl').textContent = isOpen ? 'Open' : 'Closed';
-  renderAll();
-}
+  const firebaseConfig = {
+    databaseURL: "https://baberqueuer-default-rtdb.firebaseio.com"
+  };
 
-function switchTab(tab, btn){
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('barber-view').classList.toggle('hidden', tab !== 'barber');
-  document.getElementById('customer-view').classList.toggle('hidden', tab !== 'customer');
-  renderAll();
-}
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const queueRef = ref(db, 'queue');
+  const shopRef = ref(db, 'shop');
 
-function checkJoinBtn(){
-  document.getElementById('join-btn').disabled = !document.getElementById('inp-name').value.trim();
-}
+  let queue = [];
+  let isOpen = true;
+  let myId = null;
 
-function joinQueue(){
-  const name = document.getElementById('inp-name').value.trim();
-  const phone = document.getElementById('inp-phone').value.trim();
-  if(!name) return;
-  const entry = { id: generateId(), name, phone, status: 'pending', time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
-  queue.push(entry);
-  myId = entry.id;
-  document.getElementById('inp-name').value = '';
-  document.getElementById('inp-phone').value = '';
-  renderAll();
-}
+  // Sync indicator
+  const syncEl = document.getElementById('sync-indicator');
 
-function leaveQueue(){
-  queue = queue.filter(e => e.id !== myId);
-  myId = null;
-  renderAll();
-}
+  // Listen to queue changes in real time
+  onValue(queueRef, (snapshot) => {
+    const data = snapshot.val();
+    queue = data ? Object.values(data) : [];
+    syncEl.textContent = '🟢 Live';
+    renderAll();
+  });
 
-function resetCustomer(){
-  myId = null;
-  document.getElementById('done-section').classList.add('hidden');
-  document.getElementById('join-section').classList.remove('hidden');
-  renderAll();
-}
+  // Listen to shop open/closed
+  onValue(shopRef, (snapshot) => {
+    const data = snapshot.val();
+    if(data && data.isOpen !== undefined){
+      isOpen = data.isOpen;
+      document.getElementById('statusdot').className = 'dot' + (isOpen ? '' : ' closed');
+      document.getElementById('statuslbl').textContent = isOpen ? 'Open' : 'Closed';
+      renderAll();
+    }
+  });
 
-function confirmEntry(id){ queue = queue.map(e => e.id===id ? {...e,status:'confirmed'} : e); renderAll(); }
-function rejectEntry(id){
-  if(id === myId) myId = null;
-  queue = queue.filter(e => e.id !== id);
-  renderAll();
-}
-function startCut(id){ queue = queue.map(e => e.id===id ? {...e,status:'in-chair'} : e); renderAll(); }
-function doneCut(id){ queue = queue.filter(e => e.id !== id); renderAll(); }
+  function generateId(){ return Math.random().toString(36).substr(2,9); }
 
-function renderAll(){
-  const pending = queue.filter(e => e.status==='pending');
-  const confirmed = queue.filter(e => e.status==='confirmed');
-  const inchair = queue.filter(e => e.status==='in-chair');
+  window.toggleOpen = function(){
+    isOpen = !isOpen;
+    set(shopRef, { isOpen });
+  };
 
-  // Stats
-  document.getElementById('s-chair').textContent = inchair.length;
-  document.getElementById('s-conf').textContent = confirmed.length;
-  document.getElementById('s-pend').textContent = pending.length;
+  window.switchTab = function(tab, btn){
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('barber-view').classList.toggle('hidden', tab !== 'barber');
+    document.getElementById('customer-view').classList.toggle('hidden', tab !== 'customer');
+  };
 
-  // In chair
-  const ics = document.getElementById('inchair-section');
-  if(inchair.length > 0){
-    ics.innerHTML = '<div class="slabel">In Chair</div>' + inchair.map(e => `
+  window.checkJoinBtn = function(){
+    document.getElementById('join-btn').disabled = !document.getElementById('inp-name').value.trim();
+  };
+
+  window.joinQueue = function(){
+    const name = document.getElementById('inp-name').value.trim();
+    const phone = document.getElementById('inp-phone').value.trim();
+    if(!name) return;
+    const id = generateId();
+    const entry = { id, name, phone, status: 'pending', time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
+    set(ref(db, 'queue/' + id), entry);
+    myId = id;
+    document.getElementById('inp-name').value = '';
+    document.getElementById('inp-phone').value = '';
+  };
+
+  window.leaveQueue = function(){
+    if(!myId) return;
+    remove(ref(db, 'queue/' + myId));
+    myId = null;
+    document.getElementById('my-section').classList.add('hidden');
+    document.getElementById('join-section').classList.remove('hidden');
+  };
+
+  window.resetCustomer = function(){
+    myId = null;
+    document.getElementById('done-section').classList.add('hidden');
+    document.getElementById('join-section').classList.remove('hidden');
+  };
+
+  window.confirmEntry = function(id){ update(ref(db,'queue/'+id),{status:'confirmed'}); };
+  window.rejectEntry = function(id){
+    if(id === myId){ myId = null; }
+    remove(ref(db,'queue/'+id));
+  };
+  window.startCut = function(id){ update(ref(db,'queue/'+id),{status:'in-chair'}); };
+  window.doneCut = function(id){ remove(ref(db,'queue/'+id)); };
+
+  function renderAll(){
+    const pending = queue.filter(e => e.status==='pending');
+    const confirmed = queue.filter(e => e.status==='confirmed');
+    const inchair = queue.filter(e => e.status==='in-chair');
+
+    document.getElementById('s-chair').textContent = inchair.length;
+    document.getElementById('s-conf').textContent = confirmed.length;
+    document.getElementById('s-pend').textContent = pending.length;
+
+    // In chair
+    const ics = document.getElementById('inchair-section');
+    ics.innerHTML = inchair.length > 0 ? '<div class="slabel">In Chair</div>' + inchair.map(e => `
       <div class="card inchair">
         <div class="cnum">✂</div>
         <div class="cinfo"><div class="cname">${e.name}</div>
           <div class="cmeta"><span class="ctime">${e.time}</span><span class="badge b-i">Cutting</span></div>
         </div>
         <div class="actions"><button class="abtn ok" onclick="doneCut('${e.id}')">✓</button></div>
-      </div>`).join('') + '<div class="divider"></div>';
-  } else { ics.innerHTML = ''; }
+      </div>`).join('') + '<div class="divider"></div>' : '';
 
-  // Confirmed
-  const cs = document.getElementById('confirmed-section');
-  if(confirmed.length > 0){
-    cs.innerHTML = '<div class="slabel">Up Next</div>' + confirmed.map((e,i) => `
+    // Confirmed
+    const cs = document.getElementById('confirmed-section');
+    cs.innerHTML = confirmed.length > 0 ? '<div class="slabel">Up Next</div>' + confirmed.map((e,i) => `
       <div class="card confirmed">
         <div class="cnum">${i+1}</div>
         <div class="cinfo"><div class="cname">${e.name}</div>
@@ -221,91 +252,84 @@ function renderAll(){
           <button class="abtn sc" onclick="startCut('${e.id}')">✂</button>
           <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
         </div>
-      </div>`).join('') + '<div class="divider"></div>';
-  } else { cs.innerHTML = ''; }
+      </div>`).join('') + '<div class="divider"></div>' : '';
 
-  // Pending
-  const ps = document.getElementById('pending-section');
-  if(pending.length === 0){
-    ps.innerHTML = '<div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div>';
-  } else {
-    ps.innerHTML = pending.map((e,i) => `
-      <div class="card pending">
-        <div class="cnum">${i+1}</div>
-        <div class="cinfo"><div class="cname">${e.name}</div>
-          <div class="cmeta"><span class="ctime">${e.time}</span>${e.phone?`<span class="ctime">${e.phone}</span>`:''}<span class="badge b-p">Waiting</span></div>
-        </div>
-        <div class="actions">
-          <button class="abtn ok" onclick="confirmEntry('${e.id}')">✓</button>
-          <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
-        </div>
-      </div>`).join('');
-  }
+    // Pending
+    const ps = document.getElementById('pending-section');
+    ps.innerHTML = pending.length === 0
+      ? '<div class="empty"><div class="empty-icon">💈</div><div>No pending requests</div></div>'
+      : pending.map((e,i) => `
+        <div class="card pending">
+          <div class="cnum">${i+1}</div>
+          <div class="cinfo"><div class="cname">${e.name}</div>
+            <div class="cmeta"><span class="ctime">${e.time}</span>${e.phone?`<span class="ctime">${e.phone}</span>`:''}<span class="badge b-p">Waiting</span></div>
+          </div>
+          <div class="actions">
+            <button class="abtn ok" onclick="confirmEntry('${e.id}')">✓</button>
+            <button class="abtn no" onclick="rejectEntry('${e.id}')">✕</button>
+          </div>
+        </div>`).join('');
 
-  // Customer view
-  const closedMsg = document.getElementById('closed-msg');
-  const joinSection = document.getElementById('join-section');
-  const mySection = document.getElementById('my-section');
-  const doneSection = document.getElementById('done-section');
+    // Customer view
+    const closedMsg = document.getElementById('closed-msg');
+    const joinSection = document.getElementById('join-section');
+    const mySection = document.getElementById('my-section');
 
-  if(!isOpen){
-    closedMsg.classList.remove('hidden');
-    joinSection.classList.add('hidden');
-    mySection.classList.add('hidden');
-    return;
-  } else { closedMsg.classList.add('hidden'); }
+    if(!isOpen){
+      closedMsg.classList.remove('hidden');
+      joinSection.classList.add('hidden');
+      mySection.classList.add('hidden');
+      return;
+    } else { closedMsg.classList.add('hidden'); }
 
-  const myEntry = queue.find(e => e.id === myId);
+    const myEntry = queue.find(e => e.id === myId);
 
-  if(!myId || (!myEntry && !doneSection.classList.contains('hidden'))){
-    // show done or join
-  } else if(!myEntry){
-    joinSection.classList.remove('hidden');
-    mySection.classList.add('hidden');
-  } else {
-    joinSection.classList.add('hidden');
-    mySection.classList.remove('hidden');
+    if(!myId || !myEntry){
+      if(myId && !myEntry){
+        // Cut is done
+        myId = null;
+        joinSection.classList.add('hidden');
+        document.getElementById('done-section').classList.remove('hidden');
+        mySection.classList.add('hidden');
+      } else {
+        joinSection.classList.remove('hidden');
+        mySection.classList.add('hidden');
+      }
+    } else {
+      joinSection.classList.add('hidden');
+      mySection.classList.remove('hidden');
 
-    // Status banner
-    const sb = document.getElementById('my-status');
-    if(myEntry.status==='pending') sb.innerHTML = '<div class="sbanner sb-p">⏳ Waiting for barber to confirm your spot…</div>';
-    else if(myEntry.status==='confirmed') sb.innerHTML = '<div class="sbanner sb-c">✅ You\'re confirmed! Head to the shop.</div>';
-    else if(myEntry.status==='in-chair') sb.innerHTML = '<div class="sbanner sb-i">✂ You\'re in the chair! Enjoy your cut.</div>';
+      const sb = document.getElementById('my-status');
+      if(myEntry.status==='pending') sb.innerHTML = '<div class="sbanner sb-p">⏳ Waiting for barber to confirm your spot…</div>';
+      else if(myEntry.status==='confirmed') sb.innerHTML = '<div class="sbanner sb-c">✅ You\'re confirmed! Head to the shop.</div>';
+      else if(myEntry.status==='in-chair') sb.innerHTML = '<div class="sbanner sb-i">✂ You\'re in the chair! Enjoy your cut.</div>';
 
-    // Position
-    const activeQ = queue.filter(e => e.status !== 'in-chair');
-    const pos = activeQ.findIndex(e => e.id === myId) + 1;
-    const mp = document.getElementById('my-pos');
-    if(pos > 0 && myEntry.status !== 'in-chair'){
-      mp.innerHTML = `<div class="pos-banner"><div class="pos-num">#${pos}</div><div class="pos-lbl">Your position · ~${(pos-1)*20} min wait</div></div>`;
-    } else { mp.innerHTML = ''; }
+      const activeQ = queue.filter(e => e.status !== 'in-chair');
+      const pos = activeQ.findIndex(e => e.id === myId) + 1;
+      const mp = document.getElementById('my-pos');
+      mp.innerHTML = pos > 0 && myEntry.status !== 'in-chair'
+        ? `<div class="pos-banner"><div class="pos-num">#${pos}</div><div class="pos-lbl">Your position · ~${(pos-1)*20} min wait</div></div>` : '';
 
-    // Leave btn
-    document.getElementById('leave-btn').style.display = myEntry.status === 'in-chair' ? 'none' : 'block';
+      document.getElementById('leave-btn').style.display = myEntry.status === 'in-chair' ? 'none' : 'block';
 
-    // Full queue
-    document.getElementById('full-queue').innerHTML = queue.map((e,i) => `
-      <div class="card" style="${e.id===myId?'border-color:var(--gold)':''}">
-        <div class="cnum" style="${e.id===myId?'color:var(--gold)':''}">${e.status==='in-chair'?'✂':i+1}</div>
-        <div class="cinfo"><div class="cname" style="${e.id===myId?'color:var(--gold)':''}">${e.name}${e.id===myId?' (You)':''}</div></div>
-        ${e.id===myId?'<span class="badge b-p">You</span>':''}
-      </div>`).join('');
-  }
+      document.getElementById('full-queue').innerHTML = queue.map((e,i) => `
+        <div class="card" style="${e.id===myId?'border-color:var(--gold)':''}">
+          <div class="cnum" style="${e.id===myId?'color:var(--gold)':''}">${e.status==='in-chair'?'✂':i+1}</div>
+          <div class="cinfo"><div class="cname" style="${e.id===myId?'color:var(--gold)':''}">${e.name}${e.id===myId?' (You)':''}</div></div>
+          ${e.id===myId?'<span class="badge b-p">You</span>':''}
+        </div>`).join('');
+    }
 
-  // Live preview for join section
-  const lp = document.getElementById('live-preview');
-  const visible = queue.filter(e => e.status !== 'pending');
-  if(visible.length > 0 && !myId){
-    lp.innerHTML = '<div class="slabel">Live Queue</div>' + visible.map((e,i) => `
+    // Live preview
+    const lp = document.getElementById('live-preview');
+    const visible = queue.filter(e => e.status !== 'pending');
+    lp.innerHTML = visible.length > 0 && !myId ? '<div class="slabel">Live Queue</div>' + visible.map((e,i) => `
       <div class="card">
         <div class="cnum">${e.status==='in-chair'?'✂':i+1}</div>
         <div class="cinfo"><div class="cname">${e.name}</div></div>
         <span class="badge ${e.status==='in-chair'?'b-i':'b-c'}">${e.status==='in-chair'?'Cutting':'Waiting'}</span>
-      </div>`).join('') + '<div class="divider"></div>';
-  } else { lp.innerHTML = ''; }
-}
-
-renderAll();
+      </div>`).join('') + '<div class="divider"></div>' : '';
+  }
 </script>
 </body>
-  </html>
+      </html>
